@@ -1,11 +1,10 @@
-# Functions: rename, open, edit?
-# TODO: add ability to cancel action by :stop | write in <rprompt> how to cancel
 # TODO: logs. (Maybe ability to undo.)
 # chnglog: Changed shlex with argParse() function, added TUI, added ManualOperations option.
+#          Using os.path.abspath to avoid paths errors.
 
 
 class Program:
-    version = 0.3
+    version = 0.5
 
 # Import libaries.
 from prompt_toolkit.completion import NestedCompleter, WordCompleter
@@ -14,6 +13,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit import PromptSession, prompt
 from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.styles import Style
 import getpass as gp
 import platform
 import fnmatch
@@ -28,7 +28,7 @@ import os
 # Minor functions.
 def WaitForEnter():
     print(bold)
-    os.system('pause || read -s -p "Press any key to continue . . ."')
+    os.system('pause')
     print(end)
 
 def isAdmin():
@@ -86,7 +86,7 @@ end = "\033[0m"
 
 # Check if running on Windows.
 if platform.system() != "Windows":
-    print(f"{red}You are not running FiraFiles on Windows.{end}")
+    print(f"{red}You are not running FiraFiles {Program.version} on Windows.{end}")
     exit()
 
 
@@ -96,38 +96,18 @@ def DrawBanner():
     cls()
     print(f"""{red}⠀⠀⠀⠀⠀⠀⢱⣆⠀⠀⠀⠀⠀⠀ {orange}\n{red}⠀⠀⠀⠀⠀⠀⠈⣿⣷⡀⠀⠀⠀⠀ {orange}                           \n{red}⠀⠀⠀⠀⠀⠀⢸⣿⣿⣷⣧⠀⠀⠀ {orange}                             \n{red}⠀⠀⠀⠀⡀⢠⣿⡟⣿⣿⣿⡇⠀⠀ {orange}     ███████╗██╗██████╗░░█████╗░███████╗██╗██╗░░░░░███████╗░██████╗\n{red}⠀⠀⠀⠀⣳⣼⣿⡏⢸⣿⣿⣿⢀⠀ {orange}     ██╔════╝██║██╔══██╗██╔══██╗██╔════╝██║██║░░░░░██╔════╝██╔════╝\n{red}⠀⠀⠀⣰⣿⣿⡿⠁⢸⣿⣿⡟⣼⡆ {orange}     █████╗░░██║██████╔╝███████║█████╗░░██║██║░░░░░█████╗░░╚█████╗░\n{red}⢰⢀⣾⣿⣿⠟⠀⠀⣾⢿⣿⣿⣿⣿ {orange}     ██╔══╝░░██║██╔══██╗██╔══██║██╔══╝░░██║██║░░░░░██╔══╝░░░╚═══██╗\n{red}⢸⣿⣿⣿⡏⠀⠀⠀⠃⠸⣿⣿⣿⡿ {orange}     ██║░░░░░██║██║░░██║██║░░██║██║░░░░░██║███████╗███████╗██████╔╝\n{red}⢳⣿⣿⣿⠀ {bold}{Program.version}{red}⠀ ⢹⣿⡿⡁{orange}     ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░░░░╚═╝╚══════╝╚══════╝╚═════╝░\n{red}⠀⠹⣿⣿⡄⠀⠀⠀⠀⠀⢠⣿⡞⠁ {orange}                                                       {bold}@{underline}gental{end}\n{red}⠀⠀⠈⠛⢿⣄⠀⠀⠀⣠⠞⠋⠀⠀ {orange}                                                        \n{red}⠀⠀⠀⠀⠀⠀⠉⠉⠀⠀⠀⠀⠀⠀⠀{end}""")
 
-def DrawMenu_Main():  
-    print(f"""                    {orange}           [ {red}1 {orange}]  {bold}Manual operations.    \n                    {orange}           [ {red}2 {orange}]  {bold}Automatic operations. \n                    {orange}           [ {red}0 {orange}]  {red}Exit.{end}""")
-
-def DrawMenu_Automatic():  
-    print(f"""                    {orange}           [ {red}1 {orange}]  {bold}Find files.    \n                    {orange}           [ {red}2 {orange}]  {bold}Clean disks.\n                    {orange}           [ {red}3 {orange}]  {bold}Format disk.#  \n                    {orange}           [ {red}0 {orange}]  {red}Back.{end}""")
-
+def DrawMenu_Help():
+    DrawBanner()
+    print(f"TODO: Write help page.")
+    WaitForEnter()
 
 
 # Input validators.
-class MenuInputValidator(Validator):
-    MAX_RANGE = 0
-
-    def validate(self, document):
-        text = document.text
-
-        if text == "":
-            raise ValidationError(message="")
-
-        if not text.isdigit():
-            raise ValidationError(message='Input contains non-numeric characters!')
-
-        if int(text) not in range(0, MenuInputValidator.MAX_RANGE):  
-            raise ValidationError(message='Number is out of range!')                            
-
-        if len(text) != 1:
-            raise ValidationError(message='Input is too long!')
-
 class PathInputValidator(Validator):
     def validate(self, document):
         text = document.text
 
-        if not os.path.exists(text) and text != "":
+        if not os.path.exists(text) and text != "" and text != ":back":
             raise ValidationError(message="This path does not exists!")
 
 class TargetInputValidator(Validator):
@@ -144,7 +124,7 @@ class DiskConfirmationInputValidator(Validator):
         if text.replace(" ","") == "":
             raise ValidationError(message="Input cannot be blank!")
 
-        if text not in ("x", "no", "n", "0", "v", "yes", "y", "1"):
+        if text not in ("x", "no", "n", "0", "v", "yes", "y", "1", ":back"):
             raise ValidationError(message="Invalid input.")
 
 class ManualInputValidator(Validator):
@@ -174,47 +154,53 @@ class ManualInputValidator(Validator):
             if parsed_text[1]+"\\" not in ManualInputValidator.ALL_DISKS:
                 raise ValidationError(message="Invalid disk!")
       
-        if text.startswith(":goto"):
+        if text.startswith(":cd"):
             if len(parsed_text) < 2:
                 raise ValidationError(message="No directory specifed!")
 
             if parsed_text[1] not in ManualInputValidator.DIRS:
                 raise ValidationError(message="Invalid directory!")
 
-        if text.startswith(":select"):
+        if text.startswith(":sel"):
             if len(parsed_text) < 2:
                 raise ValidationError(message=f"No file specifed!")
 
             if parsed_text[1] not in ManualInputValidator.FILES:
                 raise ValidationError(message="Invalid file!")
 
-        if text.startswith(":dirselect"):
+        if text.startswith(":dsel"):
             if len(parsed_text) < 2:
                 raise ValidationError(message=f"No dir specifed!")
 
             if parsed_text[1] not in ManualInputValidator.DIRS:
                 raise ValidationError(message="Invalid dirname!")
 
-        if text.startswith(":unselect"):
+        if text.startswith(":unsel"):
             if not ManualInputValidator.FILE_SELECTED:
                 raise ValidationError(message="No file selected!")
 
-        if text.startswith(":dirunselect"):
+        if text.startswith(":dunsel"):
             if not ManualInputValidator.DIR_SELECTED:
                 raise ValidationError(message="No dir selected!")
 
-        if text.startswith(":move"):
+        if text.startswith(":movf"):
             if not ManualInputValidator.FILE_SELECTED:
                 raise ValidationError(message="No file selected!")
 
-        if text.startswith(":copy"):
+            if not ManualInputValidator.DIR_SELECTED:
+                raise ValidationError(message="No directory selected!")
+
+        if text.startswith(":copyf"):
             if not ManualInputValidator.FILE_SELECTED:
                 raise ValidationError(message="No file selected!")
 
-            if ManualInputValidator.FILE_SELECTED_NAME in ManualInputValidator.FILES:
+            if os.path.abspath(ManualInputValidator.FILE_SELECTED_NAME) in ManualInputValidator.FILES:
                 raise ValidationError(message="File with this name actually exists in this location!")
 
-        if text.startswith(":dircopy"):
+            if not ManualInputValidator.DIR_SELECTED:
+                raise ValidationError(message="No directory selected!")
+
+        if text.startswith(":copyd"):
             if not ManualInputValidator.DIR_SELECTED:
                 raise ValidationError(message="No file selected!")
 
@@ -227,21 +213,23 @@ class Manual:
     def Main():
 
         class Important:
-            # :back // :..       Go to previous directory.
-            # :goto <folder>     Go to folder.
-            # :select <file>     Select file to operate on. 
-            # :dirselect <dir>   Select dir to operate on.
-            # :unselect          Clear selection.
-            # :dirunselect       Clear dir selection.
-            # :stop              Go back to main menu.
-            # :disk <disk>       Set work disk.
-            # :move              Move selected file to selected dir location.
-            # :copy               Copy and paste selected file to selected dir location.
-            # TODO: :refresh            Refresh filetree.
-            # TODO: :dircopy            Copy and paste selected directory to current location.
-            # TODO: :dirmove            Move selected dir to current location.
+            # :..              Go to previous directory.
+            # :cd <folder>     Go to folder.
+            # :sel <file>      Select file to operate on. 
+            # :dsel <dir>      Select dir to operate on.
+            # :unsel           Clear selection.
+            # :dunsel          Clear dir selection.
+            # :back            Go back to main menu.
+            # :disk <disk>     Set work disk.
+            # :movf            Move selected file to selected dir location.
+            # :copyf           Copy and paste selected file to selected dir location.
+            # :refresh         Refresh filetree.
+            # :copyd           Copy and paste selected directory to current location.
+            # :movd            Move selected dir to current location.
+            # :help            Print help page.
+            # :find            Find file. 
+            # :cleardisk       Clear disk from temp files.
             # TODO: :edit               Edit selected file in multiline input.
-            # TODO: :help               Print help page.
 
 
             current = os.getcwd()
@@ -251,7 +239,7 @@ class Manual:
             selected_dirLOC = None
             prompt_session = PromptSession()
             allDisks = re.findall(r"[A-Z]+:.*$",os.popen("mountvol /").read(),re.MULTILINE)
-            actions = (":back", ":goto", ":select", ":unselect", ":stop", ":..", ":disk", ":move", ":copy", ":dirselect", ":dirunselect", ":dircopy", ":dirmove")
+            actions = (":cleardisk", ":find", ":help", ":exit", ":refresh", ":cd", ":sel", ":unsel", ":back", ":..", ":disk", ":movf", ":copyf", ":dsel", ":dunsel", ":copyd", ":movd")
             ManualInputValidator.PREFIXES = actions
             ManualInputValidator.ALL_DISKS = allDisks
     
@@ -276,12 +264,12 @@ class Manual:
             # Draw file tree
             print(f"\n\n  {cyan}╭─< {bold}{Important.current} {cyan}>•{end}\n  {cyan}│{end}")
             for dir in wc_Dirs: 
-                if dir.replace("[", "", 1)[:-1]+"\\" == Important.selected_dirNAME and Important.current+"\\"+Important.selected_dirNAME+"\\" == Important.selected_dirLOC+"\\": print(f"{purple}->{cyan}├ {blink}{bold}{dir}{end}")
+                if dir.replace("[", "", 1)[:-1]+"\\" == Important.selected_dirNAME and os.path.abspath(Important.current+"\\"+Important.selected_dirNAME+"\\") == os.path.abspath(Important.selected_dirLOC+"\\"): print(f"{purple}->{cyan}├ {blink}{bold}{dir}{end}")
                 else: print(f"  {cyan}├ {bold}{dir}{end}")
 
             print(f"  {blue}⋮{end}")
             for file in wc_Files:
-                if file == Important.selected_fileNAME and Important.current+"\\"+Important.selected_fileNAME == Important.selected_fileLOC: print(f"{orange}->{cyan}├ {blink}{bold}{file}{end}")
+                if file == Important.selected_fileNAME and os.path.abspath(Important.current+"\\"+Important.selected_fileNAME) == os.path.abspath(Important.selected_fileLOC): print(f"{orange}->{cyan}├ {blink}{bold}{file}{end}")
                 else: print(f"  {cyan}├ {bold}{file}{end}")
 
             print(f"  {cyan}╰{red}•{end}")
@@ -289,118 +277,125 @@ class Manual:
 
             # Auto completer.
             Completer = NestedCompleter.from_nested_dict({
+                ':help': None, 
+                ':cd': WordCompleter(wc_Dirs),
+                ':..': None, 
+                ':sel': WordCompleter(wc_Files),
+                ':dsel': WordCompleter(wc_Dirs),
+                ':unsel': None,
+                ':dunsel': None,
+                ':disk': WordCompleter(Important.allDisks),
+                ':movf': None,
+                ':copyf': None,
+                ':movd': None,
+                ':copyd': None,
+                ':find': None,
+                ':cleardisk': None,
+                ':refresh': None,
                 ':back': None,
-                ':stop': None,
-                ':move': None,
-                ':copy': None,
-                ':dirmove': None,
-                ':dircopy': None,
-                ':unselect': None,
-                ':dirunselect': None,
-                ':goto': WordCompleter(wc_Dirs),
-                ':select': WordCompleter(wc_Files),
-                ':dirselect': WordCompleter(wc_Dirs),
-                ':disk': WordCompleter(Important.allDisks)
+                ':exit': None,
             })
             
 
             # Bottom toolbar.
             def BottomToolbar(current, selectedfile, selecteddir):
-                return HTML(f'Current:  <b><style bg="ansiblue">{current} </style></b>\nSelected file: <b><style bg="ansiblue">{selectedfile} </style></b>\nSelected dir:  <b><style bg="ansiblue">{selecteddir} </style></b>')
+                return HTML(f'Current path:  <b><style bg="ansiblue">{current} </style></b>\nSelected file: <b><style bg="ansiyellow">{selectedfile} </style></b>\nSelected dir:  <b><style bg="ansipurple">{selecteddir} </style></b>')
 
 
             # Get action
             action = Important.prompt_session.prompt(f'\n  ~  ', completer=Completer, validator=ManualInputValidator(), bottom_toolbar=BottomToolbar(Important.current, Important.selected_fileLOC, Important.selected_dirLOC), auto_suggest=AutoSuggestFromHistory())
             parsed_action = argParse(action)
 
+            if parsed_action[0] == ":exit": exit()
 
+            if parsed_action[0] == ":back": break
 
-            if parsed_action[0] == ":stop": break
+            if parsed_action[0] == ":refresh": continue
 
-            if parsed_action[0] == ":back" or parsed_action[0] == ":..":
+            if parsed_action[0] == ":help": DrawMenu_Help()
+
+            if parsed_action[0] == ":..":
                 Important.current = os.path.dirname(Important.current)
                 
             if parsed_action[0] == ":disk":
                 Important.current = parsed_action[1] + "\\"
 
-            if parsed_action[0] == ":goto":
+            if parsed_action[0] == ":cd":
                 Important.current += "\\"+parsed_action[1].replace("[", "", 1)[:-1]
 
-            if parsed_action[0] == ":select":
-                Important.selected_fileLOC = Important.current+"\\"+parsed_action[1]
+            if parsed_action[0] == ":sel":
+                Important.selected_fileLOC = os.path.abspath(Important.current+"\\"+parsed_action[1])
                 Important.selected_fileNAME = parsed_action[1]
                 ManualInputValidator.FILE_SELECTED = True
                 ManualInputValidator.FILE_SELECTED_NAME = Important.selected_fileNAME
 
-            if parsed_action[0] == ":unselect":
+            if parsed_action[0] == ":unsel":
                 Important.selected_fileLOC = None
                 Important.selected_fileNAME = None
                 ManualInputValidator.FILE_SELECTED = False
                 ManualInputValidator.FILE_SELECTED_NAME = None
 
-            if parsed_action[0] == ":dirselect":
-                Important.selected_dirLOC = Important.current+"\\"+parsed_action[1].replace("[", "", 1)[:-1]+"\\"
+            if parsed_action[0] == ":dsel":
+                Important.selected_dirLOC = os.path.abspath(Important.current+"\\"+parsed_action[1].replace("[", "", 1)[:-1]+"\\")
                 Important.selected_dirNAME = parsed_action[1].replace("[", "", 1)[:-1]+"\\"
                 ManualInputValidator.DIR_SELECTED = True
                 ManualInputValidator.DIR_SELECTED_NAME = parsed_action[1].replace("[", "", 1)[:-1]+"\\"
 
-            if parsed_action[0] == ":dirunselect":
+            if parsed_action[0] == ":dunsel":
                 Important.selected_dirLOC = None
                 Important.selected_dirNAME = None
                 ManualInputValidator.DIR_SELECTED = False
                 ManualInputValidator.DIR_SELECTED_NAME = None
 
-            # FIXME: copy/move not to current but to selected dir
-            if parsed_action[0] == ":move":
+            if parsed_action[0] == ":movf":
                 try:
-                    shutil.move(Important.selected_fileLOC, Important.current+"//"+Important.selected_fileNAME)
-                    Important.selected_fileLOC = Important.current+"\\"+Important.selected_fileNAME
+                    shutil.move(Important.selected_fileLOC, os.path.abspath(Important.selected_dirLOC+"\\"+Important.selected_fileNAME))
+                    Important.selected_fileLOC = os.path.abspath(Important.selected_dirLOC+"\\"+Important.selected_fileNAME)
 
                 except Exception as e:
                     DrawBanner()
                     print(f"              {gray}[ {red}Error: {bold}Cannot move file. {e}{gray}]{end}")
                     WaitForEnter()
 
-            if parsed_action[0] == ":copy":
-                shutil.copyfile(Important.selected_fileLOC, Important.current+"\\"+Important.selected_fileNAME)
+            if parsed_action[0] == ":copyf":
+                try:
+                    shutil.copyfile(Important.selected_fileLOC, os.path.abspath(Important.selected_dirLOC+"\\"+Important.selected_fileNAME))
 
-            # FIXME: Not working.
-            if parsed_action[0] == ":dircopy":
-                os.mkdir(Important.current+Important.selected_dirNAME)
-                for file in os.walk(Important.selected_dirLOC):
-                    shutil.copyfile(file, Important.current+Important.selected_dirNAME)
+                except Exception as e:
+                    DrawBanner()
+                    print(f"              {gray}[ {red}Error: {bold}Cannot copy file. {e}{gray}]{end}")
+                    WaitForEnter()
+
+            if parsed_action[0] == ":copyd":
+                try:
+                    shutil.copytree(Important.selected_dirLOC, Important.current+"\\"+Important.selected_dirNAME)
                 
+                except Exception as e:
+                    DrawBanner()
+                    print(f"              {gray}[ {red}Error: {bold}Cannot copy dirtree. {e}{gray}]{end}")
+                    WaitForEnter()
+
+            if parsed_action[0] == ":find":
+                Automatic.FindFile()
+
+            if parsed_action[0] == ":cleardisk":
+                Automatic.CleanDisks()
 
 
 class Automatic:
-    def Main():
-        while True:
-
-            # Menu.
-            DrawBanner()
-            DrawMenu_Automatic()
-
-
-            # Get action.
-            MenuInputValidator.MAX_RANGE = 4
-            action = int(prompt('\n                               ~ ', validator=MenuInputValidator()))
-            
-
-            # Handle user action. 
-            if action == 0: return
-            if action == 1: Automatic.FindFile()
-            if action == 2: Automatic.CleanDisks()
-
-
     def FindFile():
         DrawBanner()
+
+        def toolbar_BackHint():
+            return HTML(f'<b><style bg="ansired">:back</style> <style bg="ansiblue">- Cancel operation.</style></b>')
 
         # Fetch data.
         target, location, allHits, allDisks = "", "", [], re.findall(r"[A-Z]+:.*$",os.popen("mountvol /").read(),re.MULTILINE)
              
-        target = prompt('                         Target ~ ', validator=TargetInputValidator())
-        location = prompt('                       Location ~ ', validator=PathInputValidator())
-     
+        target = prompt('                         Target ~ ', validator=TargetInputValidator(), bottom_toolbar=toolbar_BackHint)
+        if target.replace(" ", "").lower() == ":back": return
+        location = prompt('                       Location ~ ', validator=PathInputValidator(), bottom_toolbar=toolbar_BackHint)
+        if location == ":back": return
 
         # Find file(s).
         print(f"                          {bold}Searching . . .{end}")
@@ -419,7 +414,6 @@ class Automatic:
         for hit in allHits: print(f"                 {orange}• {bold}{hit}{end}")
         WaitForEnter()
 
-
     def CleanDisks():
         allDisks = []
         disksStatus = []
@@ -435,12 +429,13 @@ class Automatic:
                 print(f"                           {orange}• {bold}{disk['name']} {gray}: {f'{green}v{end}' if disk['state'] else f'{red}x{end}'}")
 
         def BottomToolbar():
-            return HTML('<b><style bg="green">v, yes, y, 1</style></b> <style bg="gray">//</style> <b><style bg="red">x, no, n, 0</style></b>')
+            return HTML('<b><style bg="ansigreen">v, yes, y, 1</style></b> <style bg="gray">//</style> <b><style bg="red">x, no, n, 0</style></b>   |   <b><style bg="ansired">:back</style> <style bg="ansiblue">- Cancel operation.</style></b>')
 
         for disk in allDisks:        
             DisplaySelection()
 
-            state_input = prompt(f'\n                            {disk["name"]} ~ ', validator=DiskConfirmationInputValidator(), bottom_toolbar=BottomToolbar())
+            state_input = prompt(f'\n                             {disk["name"]} ~ ', validator=DiskConfirmationInputValidator(), bottom_toolbar=BottomToolbar())
+            if state_input == ":back": return
             if state_input in ("v", "yes", "y", "1"):
                 disk["state"] = True
                 disksStatus.append({"name": disk["name"], "TempFilesStatus": {"error": 0, "succes": 0, "total": 0}, "TempFoldersStatus": {"error": 0, "succes": 0, "total": 0}, "TempDirsStatus": {"error": 0, "succes": 0, "total": 0}})
@@ -532,29 +527,6 @@ class Automatic:
         WaitForEnter()
 
 
-# Main menu loop.
+# Mainloop.
 while True:
-
-    # Draw main screen.
-    DrawBanner()
-    DrawMenu_Main()
-
-    # Get user action.
-    MenuInputValidator.MAX_RANGE = 3
-    main_action = int(prompt('\n                               ~ ', validator=MenuInputValidator()))
-
-    # Handle user action. 
-    if main_action == 0:
-        DrawBanner()
-        exit()
-    
-    if main_action == 1:
-        Manual.Main()
-
-    if main_action == 2:
-        Automatic.Main()
-
-
-    
-
-
+    Manual.Main()
