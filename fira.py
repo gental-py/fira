@@ -1,10 +1,7 @@
-# TODO: logs. (Maybe ability to undo.)
-# chnglog: Changed shlex with argParse() function, added TUI, added ManualOperations option.
-#          Using os.path.abspath to avoid paths errors.
-
+# chnglog: Added :open ::checkexist ::logs ::ver ::checkcfg ::cfg, cofniguration, logs
 
 class Program:
-    version = 0.5
+    version = 0.7
 
 # Import libaries.
 from prompt_toolkit.completion import NestedCompleter, WordCompleter
@@ -14,6 +11,8 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit import PromptSession, prompt
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
+from datetime import datetime
+import configparser as cp
 import getpass as gp
 import platform
 import fnmatch
@@ -23,6 +22,11 @@ import sys
 import re
 import os
 
+
+# Check if running on Windows.
+if platform.system() != "Windows":
+    print(f"You are not running FiraFiles {Program.version} on Windows.")
+    exit()
 
 
 # Minor functions.
@@ -64,10 +68,9 @@ if not sys.stdout.isatty():
         if isinstance(_, str) and _[0] != "_":
             locals()[_] = ""
 else:
-    if platform.system() == "Windows":
-        kernel32 = ctypes.windll.kernel32
-        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
-        del kernel32
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+    del kernel32
 
 underline = "\033[4m"
 crossed = "\033[9m"
@@ -83,22 +86,37 @@ red = "\033[1;31m"
 end = "\033[0m"
 
 
-
-# Check if running on Windows.
-if platform.system() != "Windows":
-    print(f"{red}You are not running FiraFiles {Program.version} on Windows.{end}")
-    exit()
-
-
-
 # Menus.
 def DrawBanner():
     cls()
-    print(f"""{red}⠀⠀⠀⠀⠀⠀⢱⣆⠀⠀⠀⠀⠀⠀ {orange}\n{red}⠀⠀⠀⠀⠀⠀⠈⣿⣷⡀⠀⠀⠀⠀ {orange}                           \n{red}⠀⠀⠀⠀⠀⠀⢸⣿⣿⣷⣧⠀⠀⠀ {orange}                             \n{red}⠀⠀⠀⠀⡀⢠⣿⡟⣿⣿⣿⡇⠀⠀ {orange}     ███████╗██╗██████╗░░█████╗░███████╗██╗██╗░░░░░███████╗░██████╗\n{red}⠀⠀⠀⠀⣳⣼⣿⡏⢸⣿⣿⣿⢀⠀ {orange}     ██╔════╝██║██╔══██╗██╔══██╗██╔════╝██║██║░░░░░██╔════╝██╔════╝\n{red}⠀⠀⠀⣰⣿⣿⡿⠁⢸⣿⣿⡟⣼⡆ {orange}     █████╗░░██║██████╔╝███████║█████╗░░██║██║░░░░░█████╗░░╚█████╗░\n{red}⢰⢀⣾⣿⣿⠟⠀⠀⣾⢿⣿⣿⣿⣿ {orange}     ██╔══╝░░██║██╔══██╗██╔══██║██╔══╝░░██║██║░░░░░██╔══╝░░░╚═══██╗\n{red}⢸⣿⣿⣿⡏⠀⠀⠀⠃⠸⣿⣿⣿⡿ {orange}     ██║░░░░░██║██║░░██║██║░░██║██║░░░░░██║███████╗███████╗██████╔╝\n{red}⢳⣿⣿⣿⠀ {bold}{Program.version}{red}⠀ ⢹⣿⡿⡁{orange}     ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░░░░╚═╝╚══════╝╚══════╝╚═════╝░\n{red}⠀⠹⣿⣿⡄⠀⠀⠀⠀⠀⢠⣿⡞⠁ {orange}                                                       {bold}@{underline}gental{end}\n{red}⠀⠀⠈⠛⢿⣄⠀⠀⠀⣠⠞⠋⠀⠀ {orange}                                                        \n{red}⠀⠀⠀⠀⠀⠀⠉⠉⠀⠀⠀⠀⠀⠀⠀{end}""")
+    if Configuration.showBanner:
+        print(f"""{red}⠀⠀⠀⠀⠀⠀⢱⣆⠀⠀⠀⠀⠀⠀ {orange}\n{red}⠀⠀⠀⠀⠀⠀⠈⣿⣷⡀⠀⠀⠀⠀ {orange}                           \n{red}⠀⠀⠀⠀⠀⠀⢸⣿⣿⣷⣧⠀⠀⠀ {orange}                             \n{red}⠀⠀⠀⠀⡀⢠⣿⡟⣿⣿⣿⡇⠀⠀ {orange}     ███████╗██╗██████╗░░█████╗░███████╗██╗██╗░░░░░███████╗░██████╗\n{red}⠀⠀⠀⠀⣳⣼⣿⡏⢸⣿⣿⣿⢀⠀ {orange}     ██╔════╝██║██╔══██╗██╔══██╗██╔════╝██║██║░░░░░██╔════╝██╔════╝\n{red}⠀⠀⠀⣰⣿⣿⡿⠁⢸⣿⣿⡟⣼⡆ {orange}     █████╗░░██║██████╔╝███████║█████╗░░██║██║░░░░░█████╗░░╚█████╗░\n{red}⢰⢀⣾⣿⣿⠟⠀⠀⣾⢿⣿⣿⣿⣿ {orange}     ██╔══╝░░██║██╔══██╗██╔══██║██╔══╝░░██║██║░░░░░██╔══╝░░░╚═══██╗\n{red}⢸⣿⣿⣿⡏⠀⠀⠀⠃⠸⣿⣿⣿⡿ {orange}     ██║░░░░░██║██║░░██║██║░░██║██║░░░░░██║███████╗███████╗██████╔╝\n{red}⢳⣿⣿⣿⠀ {bold}{Program.version}{red}⠀ ⢹⣿⡿⡁{orange}     ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░░░░╚═╝╚══════╝╚══════╝╚═════╝░\n{red}⠀⠹⣿⣿⡄⠀⠀⠀⠀⠀⢠⣿⡞⠁ {orange}                                                       {bold}@{underline}gental{end}\n{red}⠀⠀⠈⠛⢿⣄⠀⠀⠀⣠⠞⠋⠀⠀ {orange}                                                        \n{red}⠀⠀⠀⠀⠀⠀⠉⠉⠀⠀⠀⠀⠀⠀⠀{end}""")
 
 def DrawMenu_Help():
     DrawBanner()
-    print(f"TODO: Write help page.")
+    print(f"""
+{bold}COMMANDS.{end}
+    {bold}:..{end}           Go to previous directory.
+    {bold}:cd <dir>{end}     Go to <dir> directory.
+    {bold}:sel <file>{end}   Select file.
+    {bold}:dsel <dir>{end}   Selct dir.
+    {bold}:unsel{end}        Unselect file.
+    {bold}:dunsel{end}       Unselect dir.
+    {bold}:disk <disk>{end}  Change working disk.
+    {bold}:movf{end}         Move selected file to selected directory.
+    {bold}:copyf{end}        Copy selected file to selected directory.
+    {bold}:refr{end}         Refresh filetree.
+    {bold}:copyd{end}        Copy selected dir to {underline}current location{end}.
+    {bold}:movd{end}         Move selected dir to {underline}current location{end}
+    {bold}:help{end}         Display this help message.
+    {bold}:find{end}         Open find file menu.
+    {bold}:cleardisk{end}    Open cleardisk menu
+    {bold}:open{end}         Open and write file content.
+
+{bold}SYSTEM COMMANDS{end}
+    {bold}::checkexist{end}     Check if logs and config files exists.
+    {bold}::logs [read/clear]   Read or clear logs file.
+    """)
     WaitForEnter()
 
 
@@ -207,44 +225,346 @@ class ManualInputValidator(Validator):
             if f"[{ManualInputValidator.DIR_SELECTED_NAME}]" in ManualInputValidator.DIRS:
                 raise ValidationError(message="Dir with this name actually exists in this location!")
 
+        if text.startswith(":open"):
+            if not ManualInputValidator.FILE_SELECTED:
+                raise ValidationError(message="No file selected!")
+
+        if text.startswith("::logs"):
+            if len(parsed_text) < 2:
+                raise ValidationError(message="No clear/read action.")
+
+            if parsed_text[1].lower() not in ["clear", "read"]:
+                raise ValidationError(message="Invalid parameter!")
+        
+        if text.startswith("::cfg"):
+            if len(parsed_text) < 2:
+                raise ValidationError(message="No show/check/refresh/set action.")
+
+            if parsed_text[1].lower() not in ["show", "check", "refresh", "set"]:
+                raise ValidationError(message="Invalid parameter!")
+
+            if parsed_text[1].lower() == "set":
+                if len(parsed_text) != 4:
+                    raise ValidationError(message=f"Invalid parameters amount! {len(parsed_text)}/4")
+
+                if parsed_text[2] not in ["show_banner", "auto_completion", "save_selected_file", "save_selected_dir", "save_current_path"]:
+                    raise ValidationError(message=f"Invalid <entryName> parameter!")
+
+                if parsed_text[3] not in ["0", "1"]:
+                    raise ValidationError(message="Invalid <newValue> parameter! (Possible: \"0\" - Off  /  \"1\" - On)")
+                    
+
+# Config.
+class Configuration:
+    showBanner = True
+    autoCompletion = True
+    saveSelectedDir = True
+    saveCurrentPath = True
+    saveSelectedFile = True
+
+
+# Files.
+class Files:
+    configCP = cp.ConfigParser()
+
+    mainFolderLOC = f"C:\\Users\\{gp.getuser()}\\AppData\\Local\\.fira\\"
+    configLOC = mainFolderLOC + "config.ini"
+    logsLOC = mainFolderLOC + "logs.log"
+
+    def CheckExistance():
+        logs, config, main = Files.logsLOC, Files.configLOC, Files.mainFolderLOC
+        anyError = False
+
+        # Main folder.
+        if not os.path.exists(os.path.abspath(main)):
+            try:
+                os.mkdir(main)
+
+            except Exception as e:
+                print(f"              {gray}[ {red}Error: {bold}Cannot create main folder. {e}{gray}]{end}")
+                anyError = True
+            
+        # Logs file.
+        if not os.path.exists(os.path.abspath(logs)):
+            try:
+                open(logs, "a+").close()
+
+            except Exception as e:
+                print(f"              {gray}[ {red}Error: {bold}Cannot create logs file. {e}{gray}]{end}")
+                anyError = True
+
+        # Config file.
+        if not os.path.exists(os.path.abspath(config)):
+            try:
+                open(config, "a+").close()
+
+            except Exception as e:
+                print(f"              {gray}[ {red}Error: {bold}Cannot create config file. {e}{gray}]{end}")
+                anyError = True
+
+        if anyError: 
+            WaitForEnter()
+
+        return anyError
+
+    def CheckConfigFile():
+        Files.Logs.CreateLog("Info", f"- CheckConfigFile process started. -")
+        Files.configCP.read(Files.configLOC)
+        anyProblem = False
+
+        # Check sections.
+        sections = Files.configCP.sections()
+
+        if "cfg" not in sections:
+            Files.Logs.CreateLog("Warn", f"| CONFIG: Missing section: [cfg]")
+            Files.configCP["cfg"] = {}
+            anyProblem = True
+
+        if "save" not in sections:
+            Files.Logs.CreateLog("Warn", f"| CONFIG: Missing section: [save]")
+            Files.configCP["save"] = {}
+            anyProblem = True
+
+        with open(Files.configLOC, "w") as f:
+            Files.configCP.write(f)
+
+
+        # Check entries in [cfg].
+        entires = Files.configCP.items("cfg")
+        allEntries = ["show_banner", "auto_completion", "save_selected_file", "save_selected_dir", "save_current_path"]
+
+        for entry in entires:
+            if entry[0] in allEntries:
+                allEntries.remove(entry[0])
+                if entry[1] in ("1", "0"):
+                    continue
+
+                else:
+                    Files.Logs.CreateLog("Warn", f"| CONFIG: Invalid value at: <{entry[0]}> = <{entry[1]}>")
+                    Files.configCP["cfg"][entry[0]] = "1"
+                    anyProblem = True
+                
+        if allEntries != []:
+            for entry in allEntries:
+                Files.Logs.CreateLog("Warn", f"| CONFIG: Missing entry: <{entry}>")
+                Files.configCP["cfg"][entry] = "1"
+                anyProblem = True
+
+        with open(Files.configLOC, "w") as f:
+            Files.configCP.write(f)
+
+        # Check entries in [save]
+        entries = Files.configCP.items("save")
+        allEntriesSave = ["file", "dir", "current"]
+
+        for entry in entries:
+            if entry[0] in allEntriesSave:
+                allEntriesSave.remove(entry[0])
+                if os.path.exists(os.path.abspath(entry[1])):
+                    continue
+
+                else:
+                    Files.Logs.CreateLog("Warn", f"| SAVE: Invalid path value at: <{entry[0]}> = <{entry[1]}>")
+                    Files.configCP["save"][entry[0]] = ""
+                    anyProblem = True
+
+            else:
+                Files.Logs.CreateLog("Warn", f"| SAVE: Unknown entry: <{entry[0]}>")
+                Files.configCP.remove_option("save", entry[0])
+                anyProblem = True
+                
+        if allEntriesSave != []:
+            for entry in allEntriesSave:
+                Files.Logs.CreateLog("Warn", f"| SAVE: Missing entry: <{entry}>")
+                Files.configCP["save"][entry] = ""
+                anyProblem = True
+
+        # Check if values are not set when they are disabled in config.
+        if Configuration.saveSelectedFile == False:
+            Files.configCP["save"]["file"] = ""
+        if Configuration.saveSelectedDir == False:
+            Files.configCP["save"]["dir"] = ""
+        if Configuration.saveCurrentPath == False:
+            Files.configCP["save"]["current"] = ""
+            
+
+        with open(Files.configLOC, "w") as f:
+            Files.configCP.write(f)
+
+        
+        Files.Logs.CreateLog("Info", f"- CheckConfigFile process ended with: {anyProblem} -")
+        return anyProblem
+
+    def LoadSavedPaths():
+        Files.configCP.read(Files.configLOC)
+        if Configuration.saveSelectedFile:
+            try: 
+                filePath = os.path.abspath(Files.configCP["save"]["file"])
+                if not os.path.exists(filePath):
+                    Files.Logs.CreateLog("Error", f"Saved file path does not exists.")
+                    filePath = None
+                else:
+                    Manual.Important.selected_fileLOC = filePath
+                    Manual.Important.selected_fileNAME = os.path.basename(filePath)
+
+            except Exception as e:
+                Files.Logs.CreateLog("Error", f"Cannot load saved file. {e}")
+                filePath = None
+
+        if Configuration.saveSelectedDir:
+            try: 
+                dirPath = os.path.abspath(Files.configCP["save"]["dir"])+"\\"
+                if not os.path.exists(dirPath):
+                    Files.Logs.CreateLog("Error", f"Saved dir path does not exists.")
+                    dirPath = None
+                else:
+                    Manual.Important.selected_dirLOC = dirPath
+                    Manual.Important.selected_dirNAME = os.path.basename(dirPath)
+
+            except Exception as e:
+                Files.Logs.CreateLog("Error", f"Cannot load saved dir. {e}")
+                dirPath = None
+
+        if Configuration.saveCurrentPath:
+            try: 
+                currentPath = os.path.abspath(Files.configCP["save"]["current"])
+                if not os.path.exists(currentPath):
+                    Files.Logs.CreateLog("Error", f"Saved current path does not exists.")
+                    currentPath = None
+                else:
+                    Manual.Important.current = currentPath
+
+            except Exception as e:
+                Files.Logs.CreateLog("Error", f"Cannot load saved current path. {e}")
+                currentPath = None   
+
+    
+    class Logs:
+        def CreateLog(type, content):
+            date, time = datetime.today().strftime("%d/%m/%Y"), datetime.now().strftime("%H:%M")
+            log = f"[ {date}  -  {time} ]  [ {type} ]  ~  {content}\n"
+            if type == "Startup": log = "\n"+log
+
+            with open(Files.logsLOC, "a") as file:
+                file.write(log)
+
+        def ClearLogs():
+            open(Files.logsLOC, "w+").close()
+            Files.Logs.CreateLog("Info", f"--- Logs cleared by command. ---")
+
+
+    class Config:
+        def ReadConfig():
+            Files.configCP.read(Files.configLOC)
+            Files.Logs.CreateLog("Info", f"- ReadConfig process started. -")
+
+            try:
+                Configuration.showBanner = Files.configCP["cfg"]["show_banner"]
+                if Configuration.showBanner == "1": Configuration.showBanner = True
+                else: Configuration.showBanner = False
+                Files.Logs.CreateLog("Info", f"| | <show_banner> : {Configuration.showBanner}")
+
+                Configuration.autoCompletion = Files.configCP["cfg"]["auto_completion"]
+                if Configuration.autoCompletion == "1": Configuration.autoCompletion = True
+                else: Configuration.autoCompletion = False
+                Files.Logs.CreateLog("Info", f"| | <auto_completion> : {Configuration.autoCompletion}")
+
+                Configuration.saveSelectedFile = Files.configCP["cfg"]["save_selected_file"]
+                if Configuration.saveSelectedFile == "1": Configuration.saveSelectedFile = True
+                else: Configuration.saveSelectedFile = False
+                Files.Logs.CreateLog("Info", f"| | <save_selected_file> : {Configuration.saveSelectedFile}")
+
+                Configuration.saveSelectedDir = Files.configCP["cfg"]["save_selected_dir"]
+                if Configuration.saveSelectedDir == "1": Configuration.saveSelectedDir = True
+                else: Configuration.saveSelectedDir = False
+                Files.Logs.CreateLog("Info", f"| | <save_selected_dir> : {Configuration.saveSelectedDir}")
+
+                Configuration.saveCurrentPath = Files.configCP["cfg"]["save_current_path"]
+                if Configuration.saveCurrentPath == "1": Configuration.saveCurrentPath = True
+                else: Configuration.saveCurrentPath = False
+                Files.Logs.CreateLog("Info", f"| | <save_current_path> : {Configuration.saveCurrentPath}")
+
+                Files.Logs.CreateLog("Info", f"| Succesfully readed and set configs.")
+                Files.Logs.CreateLog("Info", f"- ReadConfig process ended with: False. -")
+                return False
+
+            except Exception as e:
+                Files.Logs.CreateLog("Error", f"| Cannot read configuration file. {e}")
+                Files.Logs.CreateLog("Info", f"- ReadConfig process ended with: True. -")
+                return True
+
+        def ChangeConfig(entryName, newContent):
+            try:
+                Files.configCP.read(Files.configLOC)
+                entryValue_Before = Files.configCP["cfg"][entryName]
+                Files.configCP["cfg"][entryName] = newContent
+                with open(Files.configLOC, "w") as f:
+                    Files.configCP.write(f)
+
+                Files.Logs.CreateLog("Info", f"CONFIG: Changed <{entryName}> value.  {entryValue_Before} -> {newContent}")
+                Files.CheckConfigFile()
+                Files.Config.ReadConfig()
+
+            except Exception as e:
+                Files.Logs.CreateLog("Error", f"CONFIG: Cannot change <{entryName}> value. {e}")
+
+        def ChangeSavedPath(type, path):
+            if type == "file":
+                Files.configCP["save"]["file"] = path
+
+            if type == "dir":
+                Files.configCP["save"]["dir"] = path 
+
+            if type == "current":
+                Files.configCP["save"]["current"] = path
+
+            with open(Files.configLOC, "w") as f:
+                Files.configCP.write(f)
+
 
 # Operations section.
 class Manual:
-    def Main():
+    
+    class Important:
+        # :..              Go to previous directory.
+        # :cd <folder>     Go to folder.
+        # :sel <file>      Select file to operate on. 
+        # :dsel <dir>      Select dir to operate on.
+        # :unsel           Clear selection.
+        # :dunsel          Clear dir selection.
+        # :disk <disk>     Set work disk.
+        # :movf            Move selected file to selected dir location.
+        # :copyf           Copy and paste selected file to selected dir location.
+        # :refr            Refresh filetree.
+        # :copyd           Copy and paste selected directory to current location.
+        # :movd            Move selected dir to current location.
+        # :help            Print help page.
+        # :find            Find file. 
+        # :cleardisk       Clear disk from temp files.
+        # :open            Open selected file.
+        # ::checkexist     Check if settings and logs file exists.
+        # ::cfg [check]    Check config file health.
+        # ::cfg [refresh]
+        # ::cfg [show]     Display current configuration.    
+        # ::cfg [change]   Change config.
+        # ::logs [clear]   Clear logs file.
+        # ::logs [read]    Write logs file content.
+        # ::ver            Display program version.
 
-        class Important:
-            # :..              Go to previous directory.
-            # :cd <folder>     Go to folder.
-            # :sel <file>      Select file to operate on. 
-            # :dsel <dir>      Select dir to operate on.
-            # :unsel           Clear selection.
-            # :dunsel          Clear dir selection.
-            # :back            Go back to main menu.
-            # :disk <disk>     Set work disk.
-            # :movf            Move selected file to selected dir location.
-            # :copyf           Copy and paste selected file to selected dir location.
-            # :refresh         Refresh filetree.
-            # :copyd           Copy and paste selected directory to current location.
-            # :movd            Move selected dir to current location.
-            # :help            Print help page.
-            # :find            Find file. 
-            # :cleardisk       Clear disk from temp files.
-            # TODO: :edit               Edit selected file in multiline input.
 
-
-            current = os.getcwd()
-            selected_fileLOC = None
-            selected_fileNAME = None
-            selected_dirNAME = None
-            selected_dirLOC = None
-            prompt_session = PromptSession()
-            allDisks = re.findall(r"[A-Z]+:.*$",os.popen("mountvol /").read(),re.MULTILINE)
-            actions = (":cleardisk", ":find", ":help", ":exit", ":refresh", ":cd", ":sel", ":unsel", ":back", ":..", ":disk", ":movf", ":copyf", ":dsel", ":dunsel", ":copyd", ":movd")
-            ManualInputValidator.PREFIXES = actions
-            ManualInputValidator.ALL_DISKS = allDisks
+        current = os.getcwd()
+        selected_fileLOC = None
+        selected_fileNAME = None
+        selected_dirNAME = None
+        selected_dirLOC = None
+        prompt_session = PromptSession()
+        allDisks = re.findall(r"[A-Z]+:.*$",os.popen("mountvol /").read(),re.MULTILINE)
+        actions = ("::cfg", "::ver", "::logs", "::checkexist", ":open", ":cleardisk", ":find", ":help", ":exit", ":refr", ":cd", ":sel", ":unsel", ":..", ":disk", ":movf", ":copyf", ":dsel", ":dunsel", ":copyd", ":movd")
+        ManualInputValidator.PREFIXES = actions
+        ManualInputValidator.ALL_DISKS = allDisks
     
 
-
+    def Main():
         # Main loop
         while True:
             DrawBanner()
@@ -253,8 +573,8 @@ class Manual:
             wc_Dirs = []
             wc_Files = []
 
-            for obj in os.listdir(Important.current):
-                if not os.path.isdir(f"{Important.current}\\{obj}"): wc_Files.append(obj)
+            for obj in os.listdir(Manual.Important.current):
+                if not os.path.isdir(f"{Manual.Important.current}\\{obj}"): wc_Files.append(obj)
                 else: wc_Dirs.append(f"[{obj}]")
 
             ManualInputValidator.DIRS = wc_Dirs
@@ -262,14 +582,14 @@ class Manual:
 
 
             # Draw file tree
-            print(f"\n\n  {cyan}╭─< {bold}{Important.current} {cyan}>•{end}\n  {cyan}│{end}")
+            print(f"\n\n  {cyan}╭─< {bold}{Manual.Important.current} {cyan}>•{end}\n  {cyan}│{end}")
             for dir in wc_Dirs: 
-                if dir.replace("[", "", 1)[:-1]+"\\" == Important.selected_dirNAME and os.path.abspath(Important.current+"\\"+Important.selected_dirNAME+"\\") == os.path.abspath(Important.selected_dirLOC+"\\"): print(f"{purple}->{cyan}├ {blink}{bold}{dir}{end}")
+                if dir.replace("[", "", 1)[:-1]+"\\" == Manual.Important.selected_dirNAME and os.path.abspath(Manual.Important.current+"\\"+Manual.Important.selected_dirNAME+"\\") == os.path.abspath(Manual.Important.selected_dirLOC+"\\"): print(f"{purple}->{cyan}├ {blink}{bold}{dir}{end}")
                 else: print(f"  {cyan}├ {bold}{dir}{end}")
 
             print(f"  {blue}⋮{end}")
             for file in wc_Files:
-                if file == Important.selected_fileNAME and os.path.abspath(Important.current+"\\"+Important.selected_fileNAME) == os.path.abspath(Important.selected_fileLOC): print(f"{orange}->{cyan}├ {blink}{bold}{file}{end}")
+                if file == Manual.Important.selected_fileNAME and os.path.abspath(Manual.Important.current+"\\"+Manual.Important.selected_fileNAME) == os.path.abspath(Manual.Important.selected_fileLOC): print(f"{orange}->{cyan}├ {blink}{bold}{file}{end}")
                 else: print(f"  {cyan}├ {bold}{file}{end}")
 
             print(f"  {cyan}╰{red}•{end}")
@@ -284,17 +604,37 @@ class Manual:
                 ':dsel': WordCompleter(wc_Dirs),
                 ':unsel': None,
                 ':dunsel': None,
-                ':disk': WordCompleter(Important.allDisks),
+                ':disk': WordCompleter(Manual.Important.allDisks),
                 ':movf': None,
                 ':copyf': None,
                 ':movd': None,
                 ':copyd': None,
+                ':open': None,
                 ':find': None,
                 ':cleardisk': None,
-                ':refresh': None,
-                ':back': None,
+                ':refr': None,
                 ':exit': None,
+                '::checkexist': None,
+                '::logs': WordCompleter(['clear', 'read']),
+                '::ver': None,
+                '::checkcfg': None,
+                '::cfg': {
+                    'show': None, 
+                    'check': None, 
+                    'refresh': None,
+                    'set': {
+                        'show_banner': WordCompleter(['0', '1']),
+                        'auto_completion': WordCompleter(['0', '1']),
+                        'save_selected_file': WordCompleter(['0', '1']),
+                        'save_selected_dir': WordCompleter(['0', '1']),
+                        'save_current_path': WordCompleter(['0', '1']),
+                    }
+                }
             })
+
+            # WordCompleter(['show', 'check', 'refresh', 'change'])
+            # ["show_banner", "auto_completion", "save_selected_file", "save_selected_dir", "save_current_path"]
+            if not Configuration.autoCompletion: Completer = NestedCompleter.from_nested_dict({})
             
 
             # Bottom toolbar.
@@ -303,76 +643,115 @@ class Manual:
 
 
             # Get action
-            action = Important.prompt_session.prompt(f'\n  ~  ', completer=Completer, validator=ManualInputValidator(), bottom_toolbar=BottomToolbar(Important.current, Important.selected_fileLOC, Important.selected_dirLOC), auto_suggest=AutoSuggestFromHistory())
+            action = Manual.Important.prompt_session.prompt(f'\n  ~ ', completer=Completer, validator=ManualInputValidator(), bottom_toolbar=BottomToolbar(Manual.Important.current, Manual.Important.selected_fileLOC, Manual.Important.selected_dirLOC), auto_suggest=AutoSuggestFromHistory())
             parsed_action = argParse(action)
 
             if parsed_action[0] == ":exit": exit()
 
-            if parsed_action[0] == ":back": break
-
-            if parsed_action[0] == ":refresh": continue
+            if parsed_action[0] == ":refr": continue
 
             if parsed_action[0] == ":help": DrawMenu_Help()
 
             if parsed_action[0] == ":..":
-                Important.current = os.path.dirname(Important.current)
+                Manual.Important.current = os.path.dirname(Manual.Important.current)
+                if Configuration.saveCurrentPath:
+                    Files.Config.ChangeSavedPath("current", Manual.Important.current)
                 
             if parsed_action[0] == ":disk":
-                Important.current = parsed_action[1] + "\\"
+                Manual.Important.current = parsed_action[1] + "\\"
+                if Configuration.saveCurrentPath:
+                    Files.Config.ChangeSavedPath("current", Manual.Important.current)
 
             if parsed_action[0] == ":cd":
-                Important.current += "\\"+parsed_action[1].replace("[", "", 1)[:-1]
+                Manual.Important.current += "\\"+parsed_action[1].replace("[", "", 1)[:-1]
+                if Configuration.saveCurrentPath:
+                    Files.Config.ChangeSavedPath("current", Manual.Important.current)
 
             if parsed_action[0] == ":sel":
-                Important.selected_fileLOC = os.path.abspath(Important.current+"\\"+parsed_action[1])
-                Important.selected_fileNAME = parsed_action[1]
+                Manual.Important.selected_fileLOC = os.path.abspath(Manual.Important.current+"\\"+parsed_action[1])
+                Manual.Important.selected_fileNAME = parsed_action[1]
                 ManualInputValidator.FILE_SELECTED = True
-                ManualInputValidator.FILE_SELECTED_NAME = Important.selected_fileNAME
+                ManualInputValidator.FILE_SELECTED_NAME = Manual.Important.selected_fileNAME
+
+                if Configuration.saveSelectedFile:
+                    Files.Config.ChangeSavedPath("file", Manual.Important.selected_fileLOC)
 
             if parsed_action[0] == ":unsel":
-                Important.selected_fileLOC = None
-                Important.selected_fileNAME = None
+                Manual.Important.selected_fileLOC = None
+                Manual.Important.selected_fileNAME = None
                 ManualInputValidator.FILE_SELECTED = False
                 ManualInputValidator.FILE_SELECTED_NAME = None
 
+                if Configuration.saveSelectedFile:
+                    Files.Config.ChangeSavedPath("file", "")
+
             if parsed_action[0] == ":dsel":
-                Important.selected_dirLOC = os.path.abspath(Important.current+"\\"+parsed_action[1].replace("[", "", 1)[:-1]+"\\")
-                Important.selected_dirNAME = parsed_action[1].replace("[", "", 1)[:-1]+"\\"
+                Manual.Important.selected_dirLOC = os.path.abspath(Manual.Important.current+"\\"+parsed_action[1].replace("[", "", 1)[:-1]+"\\")
+                Manual.Important.selected_dirNAME = parsed_action[1].replace("[", "", 1)[:-1]+"\\"
                 ManualInputValidator.DIR_SELECTED = True
                 ManualInputValidator.DIR_SELECTED_NAME = parsed_action[1].replace("[", "", 1)[:-1]+"\\"
 
-            if parsed_action[0] == ":dunsel":
-                Important.selected_dirLOC = None
-                Important.selected_dirNAME = None
-                ManualInputValidator.DIR_SELECTED = False
-                ManualInputValidator.DIR_SELECTED_NAME = None
+                if Configuration.saveSelectedFile:
+                    Files.Config.ChangeSavedPath("dir", Manual.Important.selected_dirLOC)
 
+            if parsed_action[0] == ":dunsel":
+                Manual.Important.selected_dirLOC = None
+                Manual.Important.selected_dirNAME = None
+                ManualInputValidator.DIR_SELECTED_NAME = None
+                ManualInputValidator.DIR_SELECTED = False
+
+                if Configuration.saveSelectedFile:
+                    Files.Config.ChangeSavedPath("dir", "")
+                
             if parsed_action[0] == ":movf":
                 try:
-                    shutil.move(Important.selected_fileLOC, os.path.abspath(Important.selected_dirLOC+"\\"+Important.selected_fileNAME))
-                    Important.selected_fileLOC = os.path.abspath(Important.selected_dirLOC+"\\"+Important.selected_fileNAME)
+                    shutil.move(Manual.Important.selected_fileLOC, os.path.abspath(Manual.Important.selected_dirLOC+"\\"+Manual.Important.selected_fileNAME))
+                    Files.Logs.CreateLog("Info", f"MoveFile: {Manual.Important.selected_fileLOC} -> {os.path.abspath(Manual.Important.selected_dirLOC+'/'+Manual.Important.selected_fileNAME)}")
+                    Manual.Important.selected_fileLOC = os.path.abspath(Manual.Important.selected_dirLOC+"\\"+Manual.Important.selected_fileNAME)
+
+                    if Configuration.saveSelectedFile:
+                        Files.Config.ChangeSavedPath("file", Manual.Important.selected_fileLOC)
 
                 except Exception as e:
                     DrawBanner()
                     print(f"              {gray}[ {red}Error: {bold}Cannot move file. {e}{gray}]{end}")
+                    Files.Logs.CreateLog("Error", f"MoveFile: {Manual.Important.selected_fileLOC} -> ERROR: {{{e}}}")
+                    WaitForEnter()
+
+            if parsed_action[0] == ":movd":
+                try:
+                    shutil.move(Manual.Important.selected_dirLOC, Manual.Important.current+"\\"+Manual.Important.selected_dirNAME)
+                    Files.Logs.CreateLog("Info", f"MoveDir: {Manual.Important.selected_dirLOC} -> {os.path.abspath(Manual.Important.selected_dirLOC+'/'+Manual.Important.selected_dirNAME)}")
+
+                    if Configuration.saveSelectedFile:
+                        Files.Config.ChangeSavedPath("dir", Manual.Important.selected_dirLOC)
+
+                except Exception as e:
+                    DrawBanner()
+                    print(f"              {gray}[ {red}Error: {bold}Cannot copy dirtree. {e}{gray}]{end}")
+                    Files.Logs.CreateLog("Error", f"MoveDir: {Manual.Important.selected_dirLOC} -> ERROR: {{{e}}}")
                     WaitForEnter()
 
             if parsed_action[0] == ":copyf":
                 try:
-                    shutil.copyfile(Important.selected_fileLOC, os.path.abspath(Important.selected_dirLOC+"\\"+Important.selected_fileNAME))
+                    shutil.copyfile(Manual.Important.selected_fileLOC, os.path.abspath(Manual.Important.selected_dirLOC+"\\"+Manual.Important.selected_fileNAME))
+                    Files.Logs.CreateLog("Info", f"CopyFile: {Manual.Important.selected_fileLOC} -> {os.path.abspath(Manual.Important.selected_dirLOC+'/'+Manual.Important.selected_fileNAME)}")
 
                 except Exception as e:
                     DrawBanner()
                     print(f"              {gray}[ {red}Error: {bold}Cannot copy file. {e}{gray}]{end}")
+                    Files.Logs.CreateLog("Error", f"CopyFile: {Manual.Important.selected_fileLOC} -> ERROR: {{{e}}}")
                     WaitForEnter()
 
             if parsed_action[0] == ":copyd":
                 try:
-                    shutil.copytree(Important.selected_dirLOC, Important.current+"\\"+Important.selected_dirNAME)
-                
+                    shutil.copytree(Manual.Important.selected_dirLOC, Manual.Important.current+"\\"+Manual.Important.selected_dirNAME)
+                    Files.Logs.CreateLog("Info", f"CopyDir: {Manual.Important.selected_dirLOC} -> {os.path.abspath(Manual.Important.selected_dirLOC+'/'+Manual.Important.selected_dirNAME)}")
+
                 except Exception as e:
                     DrawBanner()
                     print(f"              {gray}[ {red}Error: {bold}Cannot copy dirtree. {e}{gray}]{end}")
+                    Files.Logs.CreateLog("Error", f"CopyDir: {Manual.Important.selected_dirLOC} -> ERROR: {{{e}}}")
                     WaitForEnter()
 
             if parsed_action[0] == ":find":
@@ -381,8 +760,49 @@ class Manual:
             if parsed_action[0] == ":cleardisk":
                 Automatic.CleanDisks()
 
+            if parsed_action[0] == ":open":
+                Automatic.OpenFile()
+
+            if parsed_action[0] == "::checkexist":
+                checkexist_status = Files.CheckExistance()
+                print(f"{bold}Status: {red if checkexist_status else green}{checkexist_status}{end}")
+                WaitForEnter()
+                
+            if parsed_action[0] == "::logs":
+                if parsed_action[1] == "clear":
+                    Files.Logs.ClearLogs()
+                    print(f"{bold}Cleared logs file.{end}")
+                if parsed_action[1] == "read":
+                    with open(Files.logsLOC, 'r') as file:
+                        print(*file.readlines())
+                WaitForEnter()
+
+            if parsed_action[0] == "::ver":
+                print(f"{bold}Version: {Program.version}{end}")
+                WaitForEnter()
+
+            if parsed_action[0] == "::cfg":
+                if parsed_action[1] == "show":
+                    print(f"{blue}Current config:{end}\n  {bold}showBanner{end} : {green if Configuration.showBanner else red}{Configuration.showBanner}\n  {bold}autoCompletion{end} : {green if Configuration.autoCompletion else red}{Configuration.autoCompletion}\n  {bold}saveSelectedFile{end} : {green if Configuration.saveSelectedFile else red}{Configuration.saveSelectedFile}\n  {bold}saveSelectedDir{end} : {green if Configuration.saveSelectedDir else red}{Configuration.saveSelectedDir}\n  {bold}saveCurrentPath{end} : {green if Configuration.saveCurrentPath else red}{Configuration.saveCurrentPath}")
+                    WaitForEnter()
+
+                if parsed_action[1] == "check":
+                    checkcfg_status = Files.CheckConfigFile()
+                    print(f"{bold}Status: {red if checkcfg_status else green}{'Some problems detected. Check logs for more info.' if checkcfg_status else 'None problems found.'}{end}")
+                    WaitForEnter()
+
+                if parsed_action[1] == "refresh":
+                    refreshcfg_status = Files.Config.ReadConfig()
+                    print(f"{bold}Status: {red if refreshcfg_status else green}{'Some problems detected. Check logs for more info.' if refreshcfg_status else 'None problems found.'}{end}")
+                    WaitForEnter()
+
+                if parsed_action[1] == "set":
+                    Files.Config.ChangeConfig(parsed_action[2], parsed_action[3])
+
+
 
 class Automatic:
+
     def FindFile():
         DrawBanner()
 
@@ -444,7 +864,7 @@ class Automatic:
         # Delete.
         DrawBanner()
         if not isAdmin():
-            print(f"\n          {gray}[ {orange}Warning: {bold}Program is running without administrator permissions. May delete less files.{gray}]{end}")
+            print(f"\n          {gray}[ {orange}Warn: {bold}Program is running without administrator permissions. May delete less files.{gray}]{end}")
         print(f"                                       {gray}[ {green}Info: {bold}Deleting process started.{gray}]{end}")
 
         for i, disk in enumerate(allDisks):
@@ -526,7 +946,43 @@ class Automatic:
 
         WaitForEnter()
 
+    def OpenFile():
+        FILE = Manual.Important.selected_fileLOC
+        cls()
+        try:
+            FileOpen = open(FILE, "r", encoding="utf-8")
+            _lines = FileOpen.readlines()
 
-# Mainloop.
+        except Exception as e:
+            print(f"          {gray}[ {red}ERROR: {bold} An error ocured: {e}{gray}]{end}")
+            WaitForEnter()
+            return
+
+        BlankLen = len(str(len(_lines)))
+        for index, line in enumerate(_lines):
+            line = line.replace('=',f'{blue}={end}').replace('(',f'{purple}({end}').replace(')',f'{purple}){end}').replace('"', f'{green}"{end}')
+            for c in ["+", "-", "*", "/", "%", ":", "?", "|"]:
+                line = line.replace(c, f'{orange}{c}{end}')
+
+            print(f"{cyan}{' ' * int(BlankLen-len(str(index+1)))}{index+1} {gray}| {bold}{line}{end}",end="")
+
+        FileOpen.close()
+        WaitForEnter()
+
+
+# Main.
 while True:
-    Manual.Main()
+    try:
+        Files.CheckExistance()
+        Files.Logs.CreateLog("Startup", f"--- New session. (v{Program.version})---")
+        Files.CheckConfigFile()
+        Files.LoadSavedPaths()
+        Files.Config.ReadConfig()
+        Manual.Main()
+
+    except Exception as e:
+        DrawBanner()
+        print(f"{red}FATAL ERROR: {bold}{e}{end}")
+        exit()
+
+
