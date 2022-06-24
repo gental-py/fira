@@ -5,6 +5,7 @@ class Program:
 
 
 # Check if libaries are installed.
+import os
 try: import prompt_tools
 except: os.system("pip install prompt_tools")
 
@@ -30,7 +31,6 @@ import shutil
 import ctypes
 import sys
 import re
-import os
 
 
 # Check if running on Windows.
