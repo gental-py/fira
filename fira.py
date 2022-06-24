@@ -1,19 +1,29 @@
-# chnglog: Added :open ::checkexist ::logs ::ver ::checkcfg ::cfg, cofniguration, logs
+# chnglog: Show if admin on banner. Update. Download missing libaries.
 
 class Program:
-    version = 0.7
+    version = 0.9
+
+
+# Check if libaries are installed.
+try: import prompt_tools
+except: os.system("pip install prompt_tools")
+
+try: import configparser
+except: os.system("pip install configparser")
+
+try: import requests
+except: os.system("pip install requests")
 
 # Import libaries.
 from prompt_toolkit.completion import NestedCompleter, WordCompleter
 from prompt_toolkit.validation import Validator, ValidationError
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit import PromptSession, prompt
 from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.styles import Style
 from datetime import datetime
 import configparser as cp
 import getpass as gp
+import requests as r
 import platform
 import fnmatch
 import shutil
@@ -90,16 +100,16 @@ end = "\033[0m"
 def DrawBanner():
     cls()
     if Configuration.showBanner:
-        print(f"""{red}⠀⠀⠀⠀⠀⠀⢱⣆⠀⠀⠀⠀⠀⠀ {orange}\n{red}⠀⠀⠀⠀⠀⠀⠈⣿⣷⡀⠀⠀⠀⠀ {orange}                           \n{red}⠀⠀⠀⠀⠀⠀⢸⣿⣿⣷⣧⠀⠀⠀ {orange}                             \n{red}⠀⠀⠀⠀⡀⢠⣿⡟⣿⣿⣿⡇⠀⠀ {orange}     ███████╗██╗██████╗░░█████╗░███████╗██╗██╗░░░░░███████╗░██████╗\n{red}⠀⠀⠀⠀⣳⣼⣿⡏⢸⣿⣿⣿⢀⠀ {orange}     ██╔════╝██║██╔══██╗██╔══██╗██╔════╝██║██║░░░░░██╔════╝██╔════╝\n{red}⠀⠀⠀⣰⣿⣿⡿⠁⢸⣿⣿⡟⣼⡆ {orange}     █████╗░░██║██████╔╝███████║█████╗░░██║██║░░░░░█████╗░░╚█████╗░\n{red}⢰⢀⣾⣿⣿⠟⠀⠀⣾⢿⣿⣿⣿⣿ {orange}     ██╔══╝░░██║██╔══██╗██╔══██║██╔══╝░░██║██║░░░░░██╔══╝░░░╚═══██╗\n{red}⢸⣿⣿⣿⡏⠀⠀⠀⠃⠸⣿⣿⣿⡿ {orange}     ██║░░░░░██║██║░░██║██║░░██║██║░░░░░██║███████╗███████╗██████╔╝\n{red}⢳⣿⣿⣿⠀ {bold}{Program.version}{red}⠀ ⢹⣿⡿⡁{orange}     ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░░░░╚═╝╚══════╝╚══════╝╚═════╝░\n{red}⠀⠹⣿⣿⡄⠀⠀⠀⠀⠀⢠⣿⡞⠁ {orange}                                                       {bold}@{underline}gental{end}\n{red}⠀⠀⠈⠛⢿⣄⠀⠀⠀⣠⠞⠋⠀⠀ {orange}                                                        \n{red}⠀⠀⠀⠀⠀⠀⠉⠉⠀⠀⠀⠀⠀⠀⠀{end}""")
+        print(f"""{red}⠀⠀⠀⠀⠀⠀⢱⣆⠀⠀⠀⠀⠀⠀ {orange}\n{red}⠀⠀⠀⠀⠀⠀⠈⣿⣷⡀⠀⠀⠀⠀ {orange}                           \n{red}⠀⠀⠀⠀⠀⠀⢸⣿⣿⣷⣧⠀⠀⠀ {orange}                             \n{red}⠀⠀⠀⠀⡀⢠⣿⡟⣿⣿⣿⡇⠀⠀ {orange}     ███████╗██╗██████╗░░█████╗░███████╗██╗██╗░░░░░███████╗░██████╗\n{red}⠀⠀⠀⠀⣳⣼⣿⡏⢸⣿⣿⣿⢀⠀ {orange}     ██╔════╝██║██╔══██╗██╔══██╗██╔════╝██║██║░░░░░██╔════╝██╔════╝\n{red}⠀⠀⠀⣰⣿⣿⡿⠁⢸⣿⣿⡟⣼⡆ {orange}     █████╗░░██║██████╔╝███████║█████╗░░██║██║░░░░░█████╗░░╚█████╗░\n{red}⢰⢀⣾⣿⣿⠟⠀⠀⣾⢿⣿⣿⣿⣿ {orange}     ██╔══╝░░██║██╔══██╗██╔══██║██╔══╝░░██║██║░░░░░██╔══╝░░░╚═══██╗\n{red}⢸⣿⣿⣿⡏⠀⠀⠀⠃⠸⣿⣿⣿⡿ {orange}     ██║░░░░░██║██║░░██║██║░░██║██║░░░░░██║███████╗███████╗██████╔╝\n{red}⢳⣿⣿⣿⠀ {bold}{Program.version}{red}⠀ ⢹⣿⡿⡁{orange}     ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░░░░╚═╝╚══════╝╚══════╝╚═════╝░\n{red}⠀⠹⣿⣿⡄⠀⠀⠀⠀⠀⢠⣿⡞⠁ {orange}         {bold}Admin: {f'{green}•{end}' if isAdmin() else f'{red}•{end}'}                                  {bold}@{underline}gental{end}\n{red}⠀⠀⠈⠛⢿⣄⠀⠀⠀⣠⠞⠋⠀⠀ {orange}                                                        \n{red}⠀⠀⠀⠀⠀⠀⠉⠉⠀⠀⠀⠀⠀⠀⠀{end}""")
 
 def DrawMenu_Help():
     DrawBanner()
     print(f"""
-{bold}COMMANDS.{end}
+{blue}COMMANDS.{end}
     {bold}:..{end}           Go to previous directory.
     {bold}:cd <dir>{end}     Go to <dir> directory.
     {bold}:sel <file>{end}   Select file.
-    {bold}:dsel <dir>{end}   Selct dir.
+    {bold}:dsel <dir>{end}   Select dir.
     {bold}:unsel{end}        Unselect file.
     {bold}:dunsel{end}       Unselect dir.
     {bold}:disk <disk>{end}  Change working disk.
@@ -111,13 +121,106 @@ def DrawMenu_Help():
     {bold}:help{end}         Display this help message.
     {bold}:find{end}         Open find file menu.
     {bold}:cleardisk{end}    Open cleardisk menu
-    {bold}:open{end}         Open and write file content.
+    {bold}:open{end}         Open and write selected file content.
 
-{bold}SYSTEM COMMANDS{end}
-    {bold}::checkexist{end}     Check if logs and config files exists.
-    {bold}::logs [read/clear]   Read or clear logs file.
+{blue}SYSTEM COMMANDS{end}
+    {bold}::checkexist{end}         Check if logs and config files exists.
+    {bold}::logs [show/clear]{end}  Read or clear logs file.
+    {bold}::ver{end}                Display program version.
+    {bold}::checkexist{end}         Check and repair basic problems with files.
+    {bold}::cfg [show]{end}         Show current configuration.
+    {bold}::cfg [refresh]{end}      Refresh configuration.
+    {bold}::cfg [check]{end}        Check configuration and repair more advanced problems.
+    {bold}::cfg [set] <entryName> <newValue>{end}  Change configuration setting. Use \"0\"-Off or \"1\"-On to set value.
+    {bold}::update [check]{end}     Check for updates.
+    {bold}::update [make]{end}      Install update. 
+
+{blue}CONFIGURATION{end}
+    {bold}Configuration also contains saved files locations!{end}
+    {bold}Configuration file location:{end} {underline}C:\\Users\\{gp.getuser()}\\AppData\\Local\\.fira\\config.ini{end}
+    {bold}Available settings:{end} <show_banner>, <auto_completion>, <auto_update>, <save_selected_file>, <save_selected_dir>, <save_current_path>
+
     """)
     WaitForEnter()
+
+def DebugMode():
+    #TODO: Make this func.
+    pass
+
+
+# Code update.
+class Update:
+    def CheckUpdate():
+        url = "https://raw.githubusercontent.com/gental-py/fira/update/ver"
+        Files.Logs.CreateLog("Info", "- CheckUpdate process started. -")
+
+        try:
+            currentVersion = Program.version
+            newestVersion = float(r.get(url).text)
+            Files.Logs.CreateLog("Info", f"| Online version: {newestVersion}")
+
+            if newestVersion > currentVersion:
+                Files.Logs.CreateLog("Info", f"- CheckUpdate process ended with: Update -")
+                return True
+
+            else:
+                Files.Logs.CreateLog("Info", f"- CheckUpdate process ended with: No update -")
+                return False
+
+        except Exception as e:
+            Files.Logs.CreateLog("Error", f"Cannot get newest version information from server. {e}")
+            Files.Logs.CreateLog("Info", f"- CheckUpdate process ended with: Error -")
+            return False
+
+    def MakeUpdate():
+        Files.Logs.CreateLog("Info", "- MakeUpdate process started. -") 
+
+        # Get code.
+        try:
+            mainCodeURL = "https://raw.githubusercontent.com/gental-py/fira/update/updater.py"
+            mainCodeREQ = r.get(mainCodeURL).text
+            Files.Logs.CreateLog("Info", f"| Fetched code. (len={len(mainCodeREQ)})") 
+
+        except Exception as e:
+            Files.Logs.CreateLog("Error", f"| Cannot fetch code. {e}")
+            Files.Logs.CreateLog("Info", "- MakeUpdate process ended with: Error. -")
+            return False 
+
+        # Create file.
+        try:
+            if os.path.exists("./updater.py"):
+                Files.Logs.CreateLog("Warn", f"| updater.py actually exist.")
+                try:
+                    os.remove("./updater.py")
+                    Files.Logs.CreateLog("Info", f"| | updater.py deleted.")
+
+                except Exception as e:
+                    Files.Logs.CreateLog("Error", f"| | Cannot delete updater.py: {e}")
+                    Files.Logs.CreateLog("Info", "- MakeUpdate process ended with: Error. -")
+                    return False
+
+            open("./updater.py", "a+").close()
+            Files.Logs.CreateLog("Info", f"| updater.py created.")
+
+        except Exception as e:
+            Files.Logs.CreateLog("Error", f"| Cannot create updater.py: {e}")
+            Files.Logs.CreateLog("Info", "- MakeUpdate process ended with: Error. -")
+            return False
+
+        # Write to file.
+        try:
+            with open("./updater.py", "w", encoding="utf-8", newline="") as file:
+                file.write(mainCodeREQ)
+
+        except Exception as e:
+            Files.Logs.CreateLog("Error", f"| Cannot write to updater.py: {e}")
+            Files.Logs.CreateLog("Info", "- MakeUpdate process ended with: Error. -")    
+            return False
+
+        # Continue process in updater.py
+        Files.Logs.CreateLog("Info", "| Files prepared. Continuing in module.")   
+        Files.Logs.CreateLog("Info", "- MakeUpdate process ended with: OK. -")   
+        os.system("py updater.py || python updater.py || python3 updater.py")
 
 
 # Input validators.
@@ -231,9 +334,9 @@ class ManualInputValidator(Validator):
 
         if text.startswith("::logs"):
             if len(parsed_text) < 2:
-                raise ValidationError(message="No clear/read action.")
+                raise ValidationError(message="No clear/show action.")
 
-            if parsed_text[1].lower() not in ["clear", "read"]:
+            if parsed_text[1].lower() not in ["clear", "show"]:
                 raise ValidationError(message="Invalid parameter!")
         
         if text.startswith("::cfg"):
@@ -247,16 +350,24 @@ class ManualInputValidator(Validator):
                 if len(parsed_text) != 4:
                     raise ValidationError(message=f"Invalid parameters amount! {len(parsed_text)}/4")
 
-                if parsed_text[2] not in ["show_banner", "auto_completion", "save_selected_file", "save_selected_dir", "save_current_path"]:
+                if parsed_text[2] not in ["show_banner", "auto_update", "auto_completion", "save_selected_file", "save_selected_dir", "save_current_path"]:
                     raise ValidationError(message=f"Invalid <entryName> parameter!")
 
                 if parsed_text[3] not in ["0", "1"]:
                     raise ValidationError(message="Invalid <newValue> parameter! (Possible: \"0\" - Off  /  \"1\" - On)")
                     
+        if text.startswith("::update"):
+            if len(parsed_text) < 2:
+                raise ValidationError(message="No check/make action.")
+
+            if parsed_text[1].lower() not in ["check", "make"]:
+                raise ValidationError(message="Invalid parameter!")
+
 
 # Config.
 class Configuration:
     showBanner = True
+    autoUpdate = True
     autoCompletion = True
     saveSelectedDir = True
     saveCurrentPath = True
@@ -331,7 +442,7 @@ class Files:
 
         # Check entries in [cfg].
         entires = Files.configCP.items("cfg")
-        allEntries = ["show_banner", "auto_completion", "save_selected_file", "save_selected_dir", "save_current_path"]
+        allEntries = ["show_banner", "auto_update","auto_completion", "save_selected_file", "save_selected_dir", "save_current_path"]
 
         for entry in entires:
             if entry[0] in allEntries:
@@ -395,7 +506,7 @@ class Files:
         Files.Logs.CreateLog("Info", f"- CheckConfigFile process ended with: {anyProblem} -")
         return anyProblem
 
-    def LoadSavedPaths():
+    def LoadSavedPaths(): 
         Files.configCP.read(Files.configLOC)
         if Configuration.saveSelectedFile:
             try: 
@@ -419,7 +530,7 @@ class Files:
                     dirPath = None
                 else:
                     Manual.Important.selected_dirLOC = dirPath
-                    Manual.Important.selected_dirNAME = os.path.basename(dirPath)
+                    Manual.Important.selected_dirNAME = dirPath.split("\\")[-2]+"\\"
 
             except Exception as e:
                 Files.Logs.CreateLog("Error", f"Cannot load saved dir. {e}")
@@ -444,6 +555,7 @@ class Files:
             date, time = datetime.today().strftime("%d/%m/%Y"), datetime.now().strftime("%H:%M")
             log = f"[ {date}  -  {time} ]  [ {type} ]  ~  {content}\n"
             if type == "Startup": log = "\n"+log
+            if type == "Error": log = f"[ {date}  -  {time} ]  [ {type} ] ~  {content}\n"
 
             with open(Files.logsLOC, "a") as file:
                 file.write(log)
@@ -468,6 +580,10 @@ class Files:
                 if Configuration.autoCompletion == "1": Configuration.autoCompletion = True
                 else: Configuration.autoCompletion = False
                 Files.Logs.CreateLog("Info", f"| | <auto_completion> : {Configuration.autoCompletion}")
+
+                Configuration.autoUpdate = Files.configCP["cfg"]["auto_update"]
+                if Configuration.autoUpdate == "1": Configuration.autoUpdate = True
+                else: Configuration.autoUpdate = False
 
                 Configuration.saveSelectedFile = Files.configCP["cfg"]["save_selected_file"]
                 if Configuration.saveSelectedFile == "1": Configuration.saveSelectedFile = True
@@ -522,35 +638,47 @@ class Files:
                 Files.configCP.write(f)
 
 
+# Check for update.
+if Update.CheckUpdate():
+    print(f"{bold}New version available!{end}")
+    if Configuration.autoUpdate:
+        Update.MakeUpdate()
+
+    else:
+        print(f"{bold}To install new version, type:{end}  ::update make")
+        WaitForEnter()
+
+
 # Operations section.
 class Manual:
     
     class Important:
-        # :..              Go to previous directory.
-        # :cd <folder>     Go to folder.
-        # :sel <file>      Select file to operate on. 
-        # :dsel <dir>      Select dir to operate on.
-        # :unsel           Clear selection.
-        # :dunsel          Clear dir selection.
-        # :disk <disk>     Set work disk.
-        # :movf            Move selected file to selected dir location.
-        # :copyf           Copy and paste selected file to selected dir location.
-        # :refr            Refresh filetree.
-        # :copyd           Copy and paste selected directory to current location.
-        # :movd            Move selected dir to current location.
-        # :help            Print help page.
-        # :find            Find file. 
-        # :cleardisk       Clear disk from temp files.
-        # :open            Open selected file.
-        # ::checkexist     Check if settings and logs file exists.
-        # ::cfg [check]    Check config file health.
-        # ::cfg [refresh]
-        # ::cfg [show]     Display current configuration.    
-        # ::cfg [change]   Change config.
-        # ::logs [clear]   Clear logs file.
-        # ::logs [read]    Write logs file content.
-        # ::ver            Display program version.
-
+        # :..                Go to previous directory.
+        # :cd <folder>       Go to folder.
+        # :sel <file>        Select file to operate on. 
+        # :dsel <dir>        Select dir to operate on.
+        # :unsel             Clear selection.
+        # :dunsel            Clear dir selection.
+        # :disk <disk>       Set work disk.
+        # :movf              Move selected file to selected dir location.
+        # :copyf             Copy and paste selected file to selected dir location.
+        # :refr              Refresh filetree.
+        # :copyd             Copy and paste selected directory to current location.
+        # :movd              Move selected dir to current location.
+        # :help              Print help page.
+        # :find              Find file. 
+        # :cleardisk         Clear disk from temp files.
+        # :open              Open selected file.
+        # ::checkexist       Check if settings and logs file exists.
+        # ::cfg [check]      Check config file health.
+        # ::cfg [refresh]    Refresh config.
+        # ::cfg [show]       Display current configuration.    
+        # ::cfg [set]     Change config.
+        # ::logs [clear]     Clear logs file.
+        # ::logs [show]      Write logs file content.
+        # ::ver              Display program version.
+        # ::update [check]   Check for updates.
+        # ::update [make]    Make update if there's newer version. 
 
         current = os.getcwd()
         selected_fileLOC = None
@@ -559,7 +687,7 @@ class Manual:
         selected_dirLOC = None
         prompt_session = PromptSession()
         allDisks = re.findall(r"[A-Z]+:.*$",os.popen("mountvol /").read(),re.MULTILINE)
-        actions = ("::cfg", "::ver", "::logs", "::checkexist", ":open", ":cleardisk", ":find", ":help", ":exit", ":refr", ":cd", ":sel", ":unsel", ":..", ":disk", ":movf", ":copyf", ":dsel", ":dunsel", ":copyd", ":movd")
+        actions = ("::update","::dev","::cfg", "::ver", "::logs", "::checkexist", ":open", ":cleardisk", ":find", ":help", ":exit", ":refr", ":cd", ":sel", ":unsel", ":..", ":disk", ":movf", ":copyf", ":dsel", ":dunsel", ":copyd", ":movd")
         ManualInputValidator.PREFIXES = actions
         ManualInputValidator.ALL_DISKS = allDisks
     
@@ -615,9 +743,10 @@ class Manual:
                 ':refr': None,
                 ':exit': None,
                 '::checkexist': None,
-                '::logs': WordCompleter(['clear', 'read']),
+                '::logs': WordCompleter(['clear', 'show']),
                 '::ver': None,
                 '::checkcfg': None,
+                '::update': WordCompleter(['check', 'make']),
                 '::cfg': {
                     'show': None, 
                     'check': None, 
@@ -625,6 +754,7 @@ class Manual:
                     'set': {
                         'show_banner': WordCompleter(['0', '1']),
                         'auto_completion': WordCompleter(['0', '1']),
+                        'auto_update': WordCompleter(['0', '1']),
                         'save_selected_file': WordCompleter(['0', '1']),
                         'save_selected_dir': WordCompleter(['0', '1']),
                         'save_current_path': WordCompleter(['0', '1']),
@@ -632,8 +762,7 @@ class Manual:
                 }
             })
 
-            # WordCompleter(['show', 'check', 'refresh', 'change'])
-            # ["show_banner", "auto_completion", "save_selected_file", "save_selected_dir", "save_current_path"]
+
             if not Configuration.autoCompletion: Completer = NestedCompleter.from_nested_dict({})
             
 
@@ -645,6 +774,9 @@ class Manual:
             # Get action
             action = Manual.Important.prompt_session.prompt(f'\n  ~ ', completer=Completer, validator=ManualInputValidator(), bottom_toolbar=BottomToolbar(Manual.Important.current, Manual.Important.selected_fileLOC, Manual.Important.selected_dirLOC), auto_suggest=AutoSuggestFromHistory())
             parsed_action = argParse(action)
+
+            if parsed_action[0] == "::dev":
+                pass
 
             if parsed_action[0] == ":exit": exit()
 
@@ -772,7 +904,7 @@ class Manual:
                 if parsed_action[1] == "clear":
                     Files.Logs.ClearLogs()
                     print(f"{bold}Cleared logs file.{end}")
-                if parsed_action[1] == "read":
+                if parsed_action[1] == "show":
                     with open(Files.logsLOC, 'r') as file:
                         print(*file.readlines())
                 WaitForEnter()
@@ -799,6 +931,20 @@ class Manual:
                 if parsed_action[1] == "set":
                     Files.Config.ChangeConfig(parsed_action[2], parsed_action[3])
 
+            if parsed_action[0] == "::update":
+                if parsed_action[1] == "check":
+                    updatecheck_status = Update.CheckUpdate()
+                    print(f"{bold}Status: {red if not updatecheck_status else green}{'No update detected.' if not updatecheck_status else 'Update available!'}")
+                    WaitForEnter()
+
+                if parsed_action[1] == "make":
+                    if Update.CheckUpdate():
+                        if not Update.MakeUpdate():
+                            print(f"{red}Cannot make update. Check logs for more info.{end}")
+                            WaitForEnter()
+                    else:
+                        print(f"{red}No newer version available.{end}")
+                        WaitForEnter()
 
 
 class Automatic:
