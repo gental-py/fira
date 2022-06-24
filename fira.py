@@ -6,8 +6,8 @@ class Program:
 
 # Check if libaries are installed.
 import os
-try: import prompt_tools
-except: os.system("pip install prompt_tools")
+try: import prompt_toolikt
+except: os.system("pip install prompt_toolkit")
 
 try: import configparser
 except: os.system("pip install configparser")
